@@ -83,12 +83,21 @@ func main(){
 	stopch := make(chan os.Signal, 1)
 	signal.Notify(stopch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	done := make(chan struct{})
+
 	go func(){
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error accepting connection: %v\n", err)
-				continue
+				select {
+				case <-done:
+					os.Exit(1)
+					return 
+
+				default:
+					fmt.Fprintf(os.Stderr, "Error accepting connection: %v\n", err)
+					continue
+				}
 			}
 	
 			fmt.Printf("Client connected: %s\n", conn.RemoteAddr().String())
@@ -100,6 +109,7 @@ func main(){
 
 	<-stopch
 	fmt.Println("Server stopped")
+	close(done)
 	listener.Close()
 	wg.Wait()
 }
