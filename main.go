@@ -5,7 +5,9 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 const (
@@ -59,6 +61,11 @@ func serveConnection(conn net.Conn) {
 	}
 }
 
+func handleClient(conn net.Conn, wg *sync.WaitGroup){
+	defer wg.Done()
+	serveConnection(conn)
+}
+
 func main(){
 	port := 9090
 
@@ -73,15 +80,26 @@ func main(){
 
 	var wg sync.WaitGroup
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error accepting connection: %v\n", err)
-			continue
+	stopch := make(chan os.Signal, 1)
+	signal.Notify(stopch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func(){
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error accepting connection: %v\n", err)
+				continue
+			}
+	
+			fmt.Printf("Client connected: %s\n", conn.RemoteAddr().String())
+			
+			wg.Add(1)
+			go handleClient(conn, &wg)
 		}
+	}()
 
-		fmt.Printf("Client connected: %s\n", conn.RemoteAddr().String())
-		
-	}
-
+	<-stopch
+	fmt.Println("Server stopped")
+	listener.Close()
+	wg.Wait()
 }
