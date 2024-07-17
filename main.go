@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 )
 
 const (
@@ -59,5 +60,28 @@ func serveConnection(conn net.Conn) {
 }
 
 func main(){
-	
+	port := 9090
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error listening on port %d: %v\n", port, err)
+		return
+	}
+	defer listener.Close()
+
+	fmt.Fprintf(os.Stdout, "TCP server running on port %d\n", port)
+
+	var wg sync.WaitGroup
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error accepting connection: %v\n", err)
+			continue
+		}
+
+		fmt.Printf("Client connected: %s\n", conn.RemoteAddr().String())
+		
+	}
+
 }
